@@ -1,7 +1,7 @@
 MatrizLedEnhanced
 ==========
-MatrizLed es una libreria de [Arduino](http://arduino.cc) para matrices de leds de 8x8 con controladores MAX7219 o MAX7221 
-Esta libreria esta basada en [MatrizLed](https://github.com/danidask/MatrizLed)
+MatrizLedEnhanced es una libreria de [Arduino](http://arduino.cc) para matrices de leds de 8x8 con controladores MAX7219 o MAX7221 
+Esta libreria esta basada en [MatrizLed](https://github.com/danidask/MatrizLed) con algunos metodos adicionales para manejar las matrices led y algunos errores corregidos.
 
 Descargar
 --------
