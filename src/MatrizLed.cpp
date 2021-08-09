@@ -237,8 +237,44 @@ void MatrizLed::escribirCaracter(char caracter, int posicion)
     }
     else if (caracter == ' '){
         for(int i=0; i<8; i++){
-            codigocaracter[i]=0; 
+            codigocaracter[i]= B00000000; 
         }
+    }else if (caracter == '*'){
+        codigocaracter[0] = B00000000;
+        codigocaracter[1] = B00001000;
+        codigocaracter[2] = B00101010;
+        codigocaracter[3] = B00011100; 
+        codigocaracter[4] = B01110111;
+        codigocaracter[5] = B00011100;
+        codigocaracter[6] = B00101010;
+        codigocaracter[7] = B00001000;
+    }else if (caracter == '#'){
+        codigocaracter[0] = B00000000;
+        codigocaracter[1] = B00100100;
+        codigocaracter[2] = B01111110;
+        codigocaracter[3] = B01111110;
+        codigocaracter[4] = B00100100;
+        codigocaracter[5] = B01111110;
+        codigocaracter[6] = B01111110;
+        codigocaracter[7] = B00100100;
+    }else if (caracter == '-'){
+        codigocaracter[0]= B00000000;
+        codigocaracter[1]= B00111000;
+        codigocaracter[2]= B00111000;
+        codigocaracter[3]= B00111000;
+        codigocaracter[4]= B00111000;
+        codigocaracter[5]= B00111000;
+        codigocaracter[6]= B00111000;
+        codigocaracter[7]= B00000000;
+    }else if (caracter == '_'){
+        codigocaracter[0]= B00000000;
+        codigocaracter[1]= B11000000;
+        codigocaracter[2]= B11000000;
+        codigocaracter[3]= B11000000;
+        codigocaracter[4]= B11000000;
+        codigocaracter[5]= B11000000;
+        codigocaracter[6]= B11000000;
+        codigocaracter[7]= B00000000;
     }
     // if (rotate)
     //     rotar_caracter(codigocaracter);
@@ -257,18 +293,19 @@ void MatrizLed::escribirCaracter(char caracter, int posicion)
         } 
     }
     else{
-        posicion = ((getDeviceCount()-1)*8)-posicion-1;
-        for(int i=7; i>=0; i--){
-            int address = getDeviceCount()-1;
-            int posendisplay = posicion - i;
-            while (posendisplay < 0){
-                address--;
-                posendisplay += 8;
+            posicion = ((getDeviceCount()-1)*8)-posicion-1;
+            for(int i=7; i>=0; i--){
+                int address = getDeviceCount()-1;
+                if(getDeviceCount() == 1) address = getDeviceCount();
+                int posendisplay = posicion - i;
+                while (posendisplay < 0){
+                    address--;
+                    posendisplay += 8;
+                }
+                if (address < -1)
+                    return;
+                setColumn(address, posendisplay, codigocaracter[i]);
             }
-            if (address < -1)
-                return;
-            setColumn(address, posendisplay, codigocaracter[i]);
-        } 
     }
 }
 
@@ -278,29 +315,219 @@ void MatrizLed::escribirFrase(const char* frase){
 
 void MatrizLed::escribirFrase(const char* frase, int posicion){
     for (size_t i=0; i < strlen(frase); i++){
+        if(interruptWork){
+                break;
+        }
         escribirCaracter(frase[i], (i*8)+posicion);
     }
 }
 
+void MatrizLed::escribirFraseInvertida(const char* frase){
+    escribirFraseInvertida(frase, 0);
+}
+
+void MatrizLed::escribirFraseInvertida(const char* frase, int posicion){
+    for (size_t i=strlen(frase); i > 0; i--){
+        if(interruptWork){
+                break;
+        }
+        escribirCaracter(frase[strlen(frase)-i], -(i*8)+posicion);
+    }
+}
+
 void MatrizLed::escribirCifra(int cifra, int posicion){
+    working = true;
     char formateado[getDeviceCount()+1]; // Array donde se almacenará el valor formateado (un caracter por pantalla caracteres mas fin de linea)
     // sprintf con longitud dinamica no funciona en arduino :(
     // sprintf(formateado, "%.*d", getDeviceCount(), cifra); // guardamos el valor del contador, formateado con dos espacios, como cadena de texto
     dtostrf(cifra, getDeviceCount(), 0, formateado);
     escribirFrase(formateado, posicion);
+    working = false;
 }
 
 void MatrizLed::escribirCifra(int cifra){
     escribirCifra(cifra, 0);
 }
 
-void MatrizLed::escribirFraseScroll(const char* frase, unsigned long pausa){
+void MatrizLed::interrumpir(){
+    if(working){
+        interruptWork = true;
+    }else{
+        borrar();
+    }
+}
+
+void MatrizLed::escribirCharPorChar(const char* frase, unsigned long pausa, int ax_input){
+    working = true;
+    int inicio = 1 * 8;
+    int npasos = strlen(frase) * 8;
+    int original_pausa = pausa;
+    for(int i = 0; i<strlen(frase); i++){
+            if(interruptWork){
+                borrar();
+                interruptWork = false;
+                working = false;
+                break;
+            }
+            escribirCaracter(frase[i],0);
+            // Codigo para controlar velocidad lo mas suave posible
+            if(((analogRead(ax_input)-100)*2) > original_pausa){
+                if(((analogRead(ax_input)-100)*2-50) > original_pausa){
+                    if(((analogRead(ax_input)-100)*2-100) > original_pausa){
+                        pausa = 10;
+                    }else{
+                        pausa = original_pausa - ((analogRead(ax_input)-100)*2-100);
+                    }
+                }else{
+                    pausa = original_pausa - ((analogRead(ax_input)-100)*2-50);
+                }
+            }else{
+                pausa = original_pausa - ((analogRead(ax_input)-100)*2);
+            }
+
+            // Revisar si se indico el uso de un speed display
+            if(sd_a != -1){
+                setDisplayValue(((analogRead(ax_input)-100)/200)+1);
+            }
+            delay(pausa);
+        }
+        working = false;  
+}
+
+void MatrizLed::escribirFraseScroll(const char* frase, unsigned long pausa, int ax_input){
+    working = true;
     int inicio = getDeviceCount() * 8;
     int npasos = strlen(frase) * 8;
+    int original_pausa = pausa;
     for(int i = inicio; i > -npasos; i--){
         escribirFrase(frase, i);
+        if(interruptWork){
+                borrar();
+                working = false;
+                interruptWork = false;
+                break;
+        }
+        // Codigo para controlar velocidad lo mas suave posible
+        if(((analogRead(ax_input)-100)*2) > original_pausa){
+            if(((analogRead(ax_input)-100)*2-50) > original_pausa){
+                if(((analogRead(ax_input)-100)*2-100) > original_pausa){
+                    pausa = 10;
+                }else{
+                    pausa = original_pausa - ((analogRead(ax_input)-100)*2-100);
+                }
+            }else{
+                pausa = original_pausa - ((analogRead(ax_input)-100)*2-50);
+            }
+        }else{
+            pausa = original_pausa - ((analogRead(ax_input)-100)*2);
+        }
+
+        // Revisar si se indico el uso de un speed display
+        if(sd_a != -1){
+            setDisplayValue(((analogRead(ax_input)-100)/200)+1);
+        }
+
         delay(pausa);
-    }     
+    }    
+    working = false;
+}
+
+void MatrizLed::escribirFraseScrollInvertido(const char* frase, unsigned long pausa, int ax_input){
+    working = true;
+    int inicio = getDeviceCount() * 8;
+    int npasos = strlen(frase) * 8;
+    int original_pausa = pausa;
+    for(int i = 0; i < npasos; i++){
+        escribirFraseInvertida(frase, i);
+        if(interruptWork){
+                borrar();
+                working = false;
+                interruptWork = false;
+                break;
+        }
+        // Codigo para controlar velocidad lo mas suave posible
+        if(((analogRead(ax_input)-100)*2) > original_pausa){
+            if(((analogRead(ax_input)-100)*2-50) > original_pausa){
+                if(((analogRead(ax_input)-100)*2-100) > original_pausa){
+                    pausa = 10;
+                }else{
+                    pausa = original_pausa - ((analogRead(ax_input)-100)*2-100);
+                }
+            }else{
+                pausa = original_pausa - ((analogRead(ax_input)-100)*2-50);
+            }
+        }else{
+            pausa = original_pausa - ((analogRead(ax_input)-100)*2);
+        }
+
+        // Revisar si se indico el uso de un speed display
+        if(sd_a != -1){
+            setDisplayValue(((analogRead(ax_input)-100)/200)+1);
+        }
+
+        delay(pausa);
+    }
+    working = false;
+}
+
+void MatrizLed::setSpeedDisplayPins(int sd_a, int sd_b, int sd_c, int sd_d, int sd_e, int sd_f, int sd_g){
+    this->sd_a = sd_a;
+    this->sd_b = sd_b;
+    this->sd_c = sd_c;
+    this->sd_d = sd_d;
+    this->sd_e = sd_e;
+    this->sd_f = sd_f;
+    this->sd_g = sd_g;
+}
+
+void MatrizLed::setDisplayValue(int value){
+  switch(value){
+    case 1:
+      digitalWrite(sd_a, LOW);
+      digitalWrite(sd_b, HIGH);
+      digitalWrite(sd_c, HIGH);
+      digitalWrite(sd_d, LOW);
+      digitalWrite(sd_e, LOW);
+      digitalWrite(sd_f, LOW);
+      digitalWrite(sd_g, LOW);
+      break;
+    case 2:
+      digitalWrite(sd_a, HIGH);
+      digitalWrite(sd_b, HIGH);
+      digitalWrite(sd_c, LOW);
+      digitalWrite(sd_d, HIGH);
+      digitalWrite(sd_e, HIGH);
+      digitalWrite(sd_f, LOW);
+      digitalWrite(sd_g, HIGH);
+      break;
+    case 3:
+      digitalWrite(sd_a, HIGH);
+      digitalWrite(sd_b, HIGH);
+      digitalWrite(sd_c, HIGH);
+      digitalWrite(sd_d, HIGH);
+      digitalWrite(sd_e, LOW);
+      digitalWrite(sd_f, LOW);
+      digitalWrite(sd_g, HIGH);
+      break;
+    case 4:
+      digitalWrite(sd_a, LOW);
+      digitalWrite(sd_b, HIGH);
+      digitalWrite(sd_c, HIGH);
+      digitalWrite(sd_d, LOW);
+      digitalWrite(sd_e, LOW);
+      digitalWrite(sd_f, HIGH);
+      digitalWrite(sd_g, HIGH);
+      break;
+    case 5:
+      digitalWrite(sd_a, HIGH);
+      digitalWrite(sd_b, LOW);
+      digitalWrite(sd_c, HIGH);
+      digitalWrite(sd_d, HIGH);
+      digitalWrite(sd_e, LOW);
+      digitalWrite(sd_f, HIGH);
+      digitalWrite(sd_g, HIGH);
+      break;
+  }
 }
 
 void MatrizLed::setIntensidad(int intensidad){

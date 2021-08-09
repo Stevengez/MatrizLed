@@ -128,8 +128,9 @@ class MatrizLed {
         int SPI_CS;
         /* The maximum number of devices we use */
         int maxDevices;
-        bool rotate;
+        bool rotate, working = false, interruptWork = false;
         void rotar_caracter(uint8_t[8]);
+        int sd_a=-1,sd_b,sd_c,sd_d,sd_e,sd_f,sd_g;
 
     public:
         /* 
@@ -142,17 +143,24 @@ class MatrizLed {
          */
         MatrizLed();
         void begin(int dataPin, int clkPin, int csPin, int numDevices=1);
+        void setSpeedDisplayPins(int, int, int, int, int, int, int);
         void rotar(bool);
+        void interrumpir();
         void escribirCaracter(char, int);
         void escribirFrase(const char*);
+        void escribirFraseInvertida(const char*);
         void escribirFrase(const char*, int);
+        void escribirFraseInvertida(const char*, int);
         void escribirCifra(int);
         void escribirCifra(int, int);
-        void escribirFraseScroll(const char*, unsigned long);
+        void escribirCharPorChar(const char*, unsigned long, int);
+        void escribirFraseScroll(const char*, unsigned long, int);
+        void escribirFraseScrollInvertido(const char*, unsigned long, int);
         void borrar();
         void setIntensidad(int);
         void apagar();
         void encender();
+        void setDisplayValue(int value);
 
         /*
          * Gets the number of devices attached to this MatrizLed.
